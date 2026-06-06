@@ -3,14 +3,37 @@ main.py — MindMesh FastAPI Backend
 """
 import json
 import asyncio
+import os
+import smtplib
+import ssl
+from email.message import EmailMessage
 from pathlib import Path
 from typing import Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from agents_orchestrator import run_pipeline, run_evolution_loop
 
 DATA_DIR = Path(__file__).parent / "data"
+ENV_FILE = Path(__file__).parent / ".env"
+
+
+def load_env_file():
+    if not ENV_FILE.exists():
+        return
+
+    with open(ENV_FILE) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            clean_value = value.strip().strip('"').strip("'")
+            os.environ[key.strip()] = clean_value
+
+
+load_env_file()
 
 app = FastAPI(title="MindMesh API", version="1.0.0")
 
@@ -24,6 +47,60 @@ app.add_middleware(
 
 # In-memory session store
 session_store: dict = {}  # user_id -> {strategy_history, last_result}
+email_outbox: list[dict] = []
+
+
+class InterestAdEmailRequest(BaseModel):
+    user_id: str
+    brand: str
+    ad_id: str
+    ad_name: str
+    ad_copy: str
+    genre: str
+    slot: str
+
+
+def get_user_email(user: dict):
+    if user.get("email"):
+        return user["email"]
+
+    default_recipient = os.getenv("MINDMESH_DEFAULT_RECIPIENT")
+    if default_recipient:
+        return default_recipient
+
+    safe_name = "-".join(user["name"].lower().split())
+    return f"{safe_name}@mindmesh.demo"
+
+
+def can_send_real_email(recipient: str):
+    return (
+        bool(os.getenv("MINDMESH_SMTP_USER"))
+        and bool(os.getenv("MINDMESH_SMTP_PASSWORD"))
+        and not recipient.endswith("@mindmesh.demo")
+    )
+
+
+def send_smtp_email(email_record: dict):
+    smtp_host = os.getenv("MINDMESH_SMTP_HOST", "smtp.gmail.com")
+    smtp_port = int(os.getenv("MINDMESH_SMTP_PORT", "587"))
+    smtp_user = os.getenv("MINDMESH_SMTP_USER")
+    smtp_password = (os.getenv("MINDMESH_SMTP_PASSWORD") or "").replace(" ", "")
+    sender = os.getenv("MINDMESH_SMTP_FROM", smtp_user or "")
+
+    if not smtp_user or not smtp_password:
+        raise RuntimeError("SMTP credentials are not configured")
+
+    message = EmailMessage()
+    message["From"] = sender
+    message["To"] = email_record["to"]
+    message["Subject"] = email_record["subject"]
+    message.set_content(email_record["body"])
+
+    context = ssl.create_default_context()
+    with smtplib.SMTP(smtp_host, smtp_port) as server:
+        server.starttls(context=context)
+        server.login(smtp_user, smtp_password)
+        server.send_message(message)
 
 def load_users():
     with open(DATA_DIR / "users.json") as f:
@@ -132,6 +209,51 @@ def get_metrics(user_id: str):
         "last_strategy": user.get("last_strategy_used"),
         "last_strategy_success": user.get("last_strategy_success")
     }
+
+
+@app.post("/api/send-interest-ad-email")
+def send_interest_ad_email(payload: InterestAdEmailRequest):
+    user = get_user(payload.user_id)
+    recipient = get_user_email(user)
+    email_record = {
+        "to": recipient,
+        "subject": f"{payload.brand}: {payload.ad_name}",
+        "body": (
+            f"Hi {user['name']},\n\n"
+            f"We found a {payload.genre} offer for you: {payload.ad_name}.\n\n"
+            f"{payload.ad_copy}\n\n"
+            f"Best time: {payload.slot}\n"
+            f"- {payload.brand}"
+        ),
+        "ad_id": payload.ad_id,
+        "user_id": payload.user_id,
+        "brand": payload.brand,
+    }
+
+    delivery = "outbox"
+    smtp_error = None
+    if can_send_real_email(recipient):
+        try:
+            send_smtp_email(email_record)
+            delivery = "smtp"
+        except Exception as e:
+            smtp_error = str(e)
+
+    email_outbox.append(email_record)
+    session_store.setdefault(payload.user_id, {"strategy_history": [], "runs": 0})
+    session_store[payload.user_id].setdefault("sent_ad_emails", []).append(email_record)
+    return {
+        "sent": delivery == "smtp",
+        "delivery": delivery,
+        "recipient": recipient,
+        "ad_id": payload.ad_id,
+        "smtp_error": smtp_error
+    }
+
+
+@app.get("/api/email-outbox")
+def get_email_outbox():
+    return {"emails": email_outbox, "total": len(email_outbox)}
 
 
 @app.get("/api/cities")

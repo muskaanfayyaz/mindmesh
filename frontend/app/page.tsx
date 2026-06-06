@@ -6,6 +6,7 @@ import CTRChart from './components/CTRChart'
 import ComplianceLog, { LogEntry } from './components/ComplianceLog'
 import InterestAdPopup from './components/InterestAdPopup'
 import { User, PipelineState, EvolveData, CTRDataPoint } from './lib/types'
+import { sendInterestAdEmail } from './lib/api'
 import {
   AdDecisionState,
   getInitialAdDecisionState,
@@ -321,10 +322,37 @@ export default function Home() {
     }
   }
 
-  const handleInterestedInAds = () => {
-    if (!selectedAd) return
+  const handleInterestedInAds = async () => {
+    if (!selectedUser || !selectedAd) return
+    const adToSend = selectedAd
     writeAdDecisionState(markAdInterested(readAdDecisionState(), selectedAd))
     setSelectedAd(null)
+
+    try {
+      const result = await sendInterestAdEmail(selectedUser, selectedBrand, adToSend.ad, adToSend.slot)
+      setComplianceLogs(logs => [
+        ...logs,
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          status: result.sent ? 'pass' : 'fix',
+          message: result.sent
+            ? `Interested ad emailed to ${result.recipient}: ${adToSend.ad.name}`
+            : `SMTP failed (${result.smtp_error || 'check Gmail credentials'}), ad saved to outbox for ${result.recipient}: ${adToSend.ad.name}`,
+          user: selectedUser.name
+        }
+      ])
+    } catch (e) {
+      console.error(e)
+      setComplianceLogs(logs => [
+        ...logs,
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          status: 'fail',
+          message: `Could not email interested ad: ${adToSend.ad.name}`,
+          user: selectedUser.name
+        }
+      ])
+    }
   }
 
   const handleNotInterestedInAds = () => {
