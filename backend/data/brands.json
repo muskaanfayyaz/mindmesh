@@ -1,0 +1,56 @@
+{
+  "ImagineArt": {
+    "brand_name": "ImagineArt",
+    "theme_color": "#00C2FF",
+    "guidelines": {
+      "tone": ["friendly", "inclusive", "culturally sensitive", "Urdu-friendly"],
+      "forbidden_words": ["guaranteed rich", "100% sure", "no risk", "free money", "lose weight fast", "miracle", "secret trick", "click bait", "spam"],
+      "forbidden_claims": ["guaranteed returns", "risk-free investment", "100% success rate", "doctors hate this"],
+      "cultural_requirements": ["respect Islamic values", "family-friendly language", "no alcohol references", "no inappropriate gender stereotypes"],
+      "length_limits": {
+        "push_notification": 120,
+        "whatsapp": 300,
+        "sms": 160,
+        "email_subject": 60,
+        "in_app_banner": 80
+      },
+      "required_elements": ["cta", "ImagineArt"]
+    }
+  },
+  "Stitch Apparel": {
+    "brand_name": "Stitch Apparel",
+    "theme_color": "#9D5FF7",
+    "guidelines": {
+      "tone": ["casual", "youthful", "slang-friendly", "trendy"],
+      "forbidden_words": ["dear customer", "respected user", "sincerely", "formal greetings", "strictly regulated"],
+      "forbidden_claims": ["medical grade", "permanent solution", "cheapest in pakistan"],
+      "cultural_requirements": ["respect local fashion norms", "modest representation", "no offensive terms"],
+      "length_limits": {
+        "push_notification": 100,
+        "whatsapp": 250,
+        "sms": 140,
+        "email_subject": 50,
+        "in_app_banner": 70
+      },
+      "required_elements": ["#StitchVibe", "Stitch"]
+    }
+  },
+  "Kolachi FinTech": {
+    "brand_name": "Kolachi FinTech",
+    "theme_color": "#00E5A0",
+    "guidelines": {
+      "tone": ["professional", "secure", "trustworthy", "English-forward"],
+      "forbidden_words": ["double your money", "get rich quick", "free cash", "no taxes", "guaranteed wealth"],
+      "forbidden_claims": ["interest-free guaranteed", "certified by bank", "no risk ever"],
+      "cultural_requirements": ["compliance with financial rules", "clear financial warning", "no gambling association"],
+      "length_limits": {
+        "push_notification": 130,
+        "whatsapp": 350,
+        "sms": 160,
+        "email_subject": 70,
+        "in_app_banner": 90
+      },
+      "required_elements": ["terms apply", "Kolachi"]
+    }
+  }
+}

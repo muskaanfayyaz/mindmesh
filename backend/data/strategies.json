@@ -1,0 +1,82 @@
+[
+  {
+    "id": "s1",
+    "name": "FOMO Flash Drop",
+    "description": "Limited-time flash offer with countdown urgency",
+    "best_for": ["food", "gaming", "fashion"],
+    "income_levels": ["Low", "Middle"],
+    "avg_ctr": 0.19,
+    "tone": "urgent, casual, Urdu-friendly",
+    "channels": ["Push Notification", "WhatsApp"]
+  },
+  {
+    "id": "s2",
+    "name": "Social Proof Wave",
+    "description": "Leverages trending popularity and peer validation",
+    "best_for": ["fashion", "tech", "gaming"],
+    "income_levels": ["Middle", "High"],
+    "avg_ctr": 0.14,
+    "tone": "trendy, confident, social",
+    "channels": ["Instagram Story", "Push Notification"]
+  },
+  {
+    "id": "s3",
+    "name": "Bundle Deal",
+    "description": "Value combo packs with clear savings messaging",
+    "best_for": ["food", "sports", "education"],
+    "income_levels": ["Low", "Middle"],
+    "avg_ctr": 0.12,
+    "tone": "friendly, value-focused, direct",
+    "channels": ["WhatsApp", "SMS"]
+  },
+  {
+    "id": "s4",
+    "name": "Premium Branding",
+    "description": "Aspirational positioning for high-income audience",
+    "best_for": ["fashion", "travel", "tech"],
+    "income_levels": ["High"],
+    "avg_ctr": 0.10,
+    "tone": "sophisticated, aspirational, polished",
+    "channels": ["Email", "In-App Banner"]
+  },
+  {
+    "id": "s5",
+    "name": "Educational Content",
+    "description": "Value-first content that builds trust before selling",
+    "best_for": ["education", "business", "tech"],
+    "income_levels": ["Middle", "High"],
+    "avg_ctr": 0.11,
+    "tone": "informative, helpful, authoritative",
+    "channels": ["Email", "Push Notification"]
+  },
+  {
+    "id": "s6",
+    "name": "Loyalty Reward",
+    "description": "Exclusive returning-customer discounts and perks",
+    "best_for": ["food", "fashion", "sports"],
+    "income_levels": ["Low", "Middle"],
+    "avg_ctr": 0.13,
+    "tone": "warm, appreciative, personal",
+    "channels": ["SMS", "WhatsApp"]
+  },
+  {
+    "id": "s7",
+    "name": "Influencer Style",
+    "description": "Peer-driven creative using relatable micro-influencer voice",
+    "best_for": ["fashion", "food", "gaming"],
+    "income_levels": ["Low", "Middle"],
+    "avg_ctr": 0.16,
+    "tone": "casual, fun, Urdu-sprinkled",
+    "channels": ["Instagram Story", "TikTok-Style Push"]
+  },
+  {
+    "id": "s8",
+    "name": "Urgency/FOMO",
+    "description": "Time-sensitive deal for decisive, high-value buyers",
+    "best_for": ["business", "travel", "sports"],
+    "income_levels": ["High", "Middle"],
+    "avg_ctr": 0.15,
+    "tone": "direct, professional, decisive",
+    "channels": ["Email", "In-App Banner"]
+  }
+]
