@@ -1,6 +1,7 @@
 """
 main.py — MindMesh FastAPI Backend
 """
+import os
 import json
 import asyncio
 from pathlib import Path
@@ -14,9 +15,14 @@ DATA_DIR = Path(__file__).parent / "data"
 
 app = FastAPI(title="MindMesh API", version="1.0.0")
 
+allowed_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+env_origins = os.getenv("ALLOWED_ORIGINS")
+if env_origins:
+    allowed_origins.extend([o.strip() for o in env_origins.split(",") if o.strip()])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

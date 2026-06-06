@@ -32,6 +32,8 @@ function writeAdDecisionState(state: AdDecisionState) {
   window.localStorage.setItem(AD_DECISION_KEY, JSON.stringify(state))
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
 export default function Home() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [pipeline, setPipeline] = useState<PipelineState>({
@@ -63,7 +65,7 @@ export default function Home() {
     
     // Fetch metrics history
     try {
-      const res = await fetch(`http://localhost:8000/api/metrics/${user.user_id}`)
+      const res = await fetch(`${API_BASE_URL}/api/metrics/${user.user_id}`)
       if (res.ok) {
         const metrics = await res.json()
         const history: CTRDataPoint[] = [
@@ -118,7 +120,7 @@ export default function Home() {
       }
     ])
 
-    const eventSource = new EventSource(`http://localhost:8000/api/stream/${selectedUser.user_id}?brand=${encodeURIComponent(activeBrand)}`)
+    const eventSource = new EventSource(`${API_BASE_URL}/api/stream/${selectedUser.user_id}?brand=${encodeURIComponent(activeBrand)}`)
     
     eventSource.onmessage = (event) => {
       try {
@@ -247,7 +249,7 @@ export default function Home() {
       }
     ])
 
-    const eventSource = new EventSource(`http://localhost:8000/api/evolve/${selectedUser.user_id}`)
+    const eventSource = new EventSource(`${API_BASE_URL}/api/evolve/${selectedUser.user_id}`)
     
     eventSource.onmessage = (event) => {
       try {
