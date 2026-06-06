@@ -5,6 +5,32 @@ import AgentFeed from './components/AgentFeed'
 import CTRChart from './components/CTRChart'
 import ComplianceLog, { LogEntry } from './components/ComplianceLog'
 import { User, PipelineState, EvolveData, CTRDataPoint } from './lib/types'
+import InterestAdPopup from './components/InterestAdPopup'
+import {
+  AdDecisionState,
+  getInitialAdDecisionState,
+  markAdInterested,
+  markAdNotInterested,
+  normalizeAdDecisionState,
+  SelectedInterestAd,
+  selectInterestAd
+} from './lib/adCatalog'
+
+const AD_DECISION_KEY = 'mindmesh-interest-ad-decisions'
+
+function readAdDecisionState(): AdDecisionState {
+  if (typeof window === 'undefined') return getInitialAdDecisionState()
+  try {
+    return normalizeAdDecisionState(JSON.parse(window.localStorage.getItem(AD_DECISION_KEY) || '{}'))
+  } catch {
+    return getInitialAdDecisionState()
+  }
+}
+
+function writeAdDecisionState(state: AdDecisionState) {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(AD_DECISION_KEY, JSON.stringify(state))
+}
 
 export default function Home() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
@@ -18,6 +44,7 @@ export default function Home() {
   const [ctrHistoryData, setCtrHistoryData] = useState<CTRDataPoint[]>([])
   const [baselineCTR, setBaselineCTR] = useState<number>(0)
   const [selectedBrand, setSelectedBrand] = useState('ImagineArt')
+  const [selectedAd, setSelectedAd] = useState<SelectedInterestAd | null>(null)
   
   // Quick stats counters
   const [runsCount, setRunsCount] = useState(1284)
@@ -180,6 +207,13 @@ export default function Home() {
                 user: selectedUser.name
               }
             ])
+
+            // Trigger the ad popup after running the pipeline
+            setTimeout(() => {
+              const adState = readAdDecisionState()
+              const chosenAd = selectInterestAd(selectedUser, activeBrand, adState)
+              setSelectedAd(chosenAd)
+            }, 300)
           }
           
           return nextState
@@ -285,8 +319,31 @@ export default function Home() {
     }
   }
 
+  const handleInterestedInAds = () => {
+    if (!selectedAd) return
+    writeAdDecisionState(markAdInterested(readAdDecisionState(), selectedAd))
+    setSelectedAd(null)
+  }
+
+  const handleNotInterestedInAds = () => {
+    if (!selectedAd) return
+    writeAdDecisionState(markAdNotInterested(readAdDecisionState(), selectedAd))
+    setSelectedAd(null)
+  }
+
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-[#040B1A] text-slate-100 font-sans">
+      {selectedUser && selectedAd && (
+        <InterestAdPopup
+          user={selectedUser}
+          brand={selectedBrand}
+          ad={selectedAd.ad}
+          activeSlot={selectedAd.slot}
+          onInterested={handleInterestedInAds}
+          onNotInterested={handleNotInterestedInAds}
+          onClose={() => setSelectedAd(null)}
+        />
+      )}
       {/* Top Navigation Bar */}
       <header className="flex-shrink-0 h-[56px] bg-[#040B1A] border-b border-white/10 flex items-center justify-between px-6 z-10 shadow-sm">
         <div className="flex items-center gap-2">
