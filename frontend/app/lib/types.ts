@@ -69,7 +69,7 @@ export interface PipelineState {
     confidence_score: number
     channel: string
     tool_called: string
-    ctr_history?: any
+    ctr_history?: unknown
   }
   copy?: {
     draft_copy: string

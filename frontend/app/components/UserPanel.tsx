@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { User } from '../lib/types'
 import { fetchUsers } from '../lib/api'
 import UserCard from './UserCard'
@@ -14,7 +14,6 @@ const DEVICES = ['All', 'Mobile', 'Desktop', 'Tablet']
 
 export default function UserPanel({ selectedUser, onSelectUser }: Props) {
   const [users, setUsers] = useState<User[]>([])
-  const [filtered, setFiltered] = useState<User[]>([])
   const [search, setSearch] = useState('')
   const [city, setCity] = useState('All')
   const [device, setDevice] = useState('All')
@@ -22,12 +21,12 @@ export default function UserPanel({ selectedUser, onSelectUser }: Props) {
 
   useEffect(() => {
     fetchUsers()
-      .then(d => { setUsers(d.users); setFiltered(d.users) })
+      .then(d => setUsers(d.users))
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => {
+  const filtered = useMemo(() => {
     let result = users
     if (search) result = result.filter(u =>
       u.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -35,7 +34,7 @@ export default function UserPanel({ selectedUser, onSelectUser }: Props) {
     )
     if (city !== 'All') result = result.filter(u => u.city === city)
     if (device !== 'All') result = result.filter(u => u.device === device)
-    setFiltered(result)
+    return result
   }, [search, city, device, users])
 
   return (

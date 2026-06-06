@@ -1,7 +1,7 @@
 import { User } from './types'
 
 export async function fetchUsers(search?: string, city?: string, device?: string): Promise<{ users: User[] }> {
-  let url = 'http://localhost:8000/api/users?'
+  const url = 'http://localhost:8000/api/users?'
   const params = new URLSearchParams()
   if (search) params.append('search', search)
   if (city && city !== 'All') params.append('city', city)

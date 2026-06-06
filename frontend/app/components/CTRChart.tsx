@@ -7,15 +7,27 @@ interface Props {
   baseline: number
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface TooltipPayloadItem {
+  color?: string
+  name?: string
+  value?: number
+}
+
+interface CustomTooltipProps {
+  active?: boolean
+  payload?: TooltipPayloadItem[]
+  label?: string
+}
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   if (active && payload && payload.length) {
     return (
       <div className="rounded-lg p-2 text-xs"
         style={{ background: '#0A1628', border: '1px solid rgba(0,194,255,0.3)', color: '#E2E8F0' }}>
         <div className="font-semibold mb-1">{label}</div>
-        {payload.map((p: any, i: number) => (
+        {payload.map((p, i: number) => (
           <div key={i} style={{ color: p.color }}>
-            {p.name}: {(p.value * 100).toFixed(1)}%
+            {p.name}: {(((p.value || 0) * 100).toFixed(1))}%
           </div>
         ))}
       </div>

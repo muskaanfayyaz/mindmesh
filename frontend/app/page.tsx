@@ -4,10 +4,45 @@ import UserPanel from './components/UserPanel'
 import AgentFeed from './components/AgentFeed'
 import CTRChart from './components/CTRChart'
 import ComplianceLog, { LogEntry } from './components/ComplianceLog'
+import InterestAdPopup from './components/InterestAdPopup'
 import { User, PipelineState, EvolveData, CTRDataPoint } from './lib/types'
+import {
+  AdDecisionState,
+  getInitialAdDecisionState,
+  markAdInterested,
+  markAdNotInterested,
+  normalizeAdDecisionState,
+  SelectedInterestAd,
+  selectInterestAd
+} from './lib/adCatalog'
+
+const AD_DECISION_KEY = 'mindmesh-interest-ad-decisions'
+interface MetricsHistoryItem {
+  predicted_ctr?: number
+  ctr?: number
+}
+
+interface UserMetrics {
+  strategy_history?: MetricsHistoryItem[]
+}
+
+function readAdDecisionState(): AdDecisionState {
+  if (typeof window === 'undefined') return getInitialAdDecisionState()
+  try {
+    return normalizeAdDecisionState(JSON.parse(window.localStorage.getItem(AD_DECISION_KEY) || '{}'))
+  } catch {
+    return getInitialAdDecisionState()
+  }
+}
+
+function writeAdDecisionState(state: AdDecisionState) {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(AD_DECISION_KEY, JSON.stringify(state))
+}
 
 export default function Home() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [selectedAd, setSelectedAd] = useState<SelectedInterestAd | null>(null)
   const [pipeline, setPipeline] = useState<PipelineState>({
     status: 'idle',
     isRunning: false
@@ -26,6 +61,7 @@ export default function Home() {
 
   const handleSelectUser = async (user: User) => {
     setSelectedUser(user)
+    setSelectedAd(selectInterestAd(user, selectedBrand, readAdDecisionState()))
     setPipeline({
       status: 'idle',
       isRunning: false
@@ -38,14 +74,14 @@ export default function Home() {
     try {
       const res = await fetch(`http://localhost:8000/api/metrics/${user.user_id}`)
       if (res.ok) {
-        const metrics = await res.json()
+        const metrics = await res.json() as UserMetrics
         const history: CTRDataPoint[] = [
           { label: 'Baseline', ctr: user.click_through_rate }
         ]
         
         // Add previous runs to history
         if (metrics.strategy_history && metrics.strategy_history.length > 0) {
-          metrics.strategy_history.forEach((h: any, idx: number) => {
+          metrics.strategy_history.forEach((h, idx: number) => {
             history.push({
               label: `Run ${idx + 1}`,
               ctr: h.predicted_ctr || h.ctr || user.click_through_rate,
@@ -285,8 +321,32 @@ export default function Home() {
     }
   }
 
+  const handleInterestedInAds = () => {
+    if (!selectedAd) return
+    writeAdDecisionState(markAdInterested(readAdDecisionState(), selectedAd))
+    setSelectedAd(null)
+  }
+
+  const handleNotInterestedInAds = () => {
+    if (!selectedAd) return
+    writeAdDecisionState(markAdNotInterested(readAdDecisionState(), selectedAd))
+    setSelectedAd(null)
+  }
+
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-[#040B1A] text-slate-100 font-sans">
+      {selectedUser && selectedAd && (
+        <InterestAdPopup
+          user={selectedUser}
+          brand={selectedBrand}
+          ad={selectedAd.ad}
+          activeSlot={selectedAd.slot}
+          onInterested={handleInterestedInAds}
+          onNotInterested={handleNotInterestedInAds}
+          onClose={() => setSelectedAd(null)}
+        />
+      )}
+
       {/* Top Navigation Bar */}
       <header className="flex-shrink-0 h-[56px] bg-[#040B1A] border-b border-white/10 flex items-center justify-between px-6 z-10 shadow-sm">
         <div className="flex items-center gap-2">

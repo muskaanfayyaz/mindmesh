@@ -69,7 +69,6 @@ function getAgentData(key: string, pipeline: PipelineState): Record<string, unkn
 export default function AgentFeed({ user, pipeline, evolveData, isEvolving, onRun, onEvolve }: Props) {
   const canRun = user && !pipeline.isRunning && !isEvolving
   const canEvolve = user && pipeline.status === 'done' && !isEvolving && !pipeline.isRunning
-  const lastEvolve = evolveData[evolveData.length - 1]
 
   return (
     <div className="flex-1 flex flex-col h-full min-w-0 border-r border-white/5">
