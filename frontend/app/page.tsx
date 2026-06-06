@@ -68,9 +68,9 @@ export default function Home() {
     }
   }
 
-  const handleRunPipeline = (brandName?: string) => {
+  const handleRunPipeline = (brandName?: string | any) => {
     if (!selectedUser) return
-    const activeBrand = brandName || selectedBrand
+    const activeBrand = (typeof brandName === 'string' && brandName) ? brandName : selectedBrand
     
     // Reset pipeline state
     setPipeline({
@@ -330,8 +330,8 @@ export default function Home() {
           pipeline={pipeline}
           evolveData={evolveData}
           isEvolving={isEvolving}
-          onRun={handleRunPipeline}
-          onEvolve={handleEvolve}
+          onRun={() => handleRunPipeline()}
+          onEvolve={() => handleEvolve()}
         />
 
         {/* RIGHT PANEL: ANALYTICS & LOGS */}
