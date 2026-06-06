@@ -404,24 +404,105 @@ def mock_reflection_agent(user: dict, strategy_history: list, iteration: int) ->
     }
 
 
-# ─── REAL API (when key present) ───────────────────────────────────────────────
+# ─── REAL API PROMPTS & CLIENT ────────────────────────────────────────────────
+
+BEHAVIOR_ANALYST_PROMPT = """You are a user behavior analyst.
+Given this user profile: {user_data}
+
+Return JSON only:
+{{
+  "engagement_level": "Low / Medium / High",
+  "behavior_tag": "e.g. Impulse Buyer / Window Shopper / Research-Driven",
+  "top_interests": ["top 3 from browsing history"],
+  "purchase_frequency": "Rare / Occasional / Frequent",
+  "session_intensity": "e.g. High frequency, short sessions"
+}}"""
+
+PERSONA_BUILDER_PROMPT = """You are a marketing persona specialist.
+Given this behavior analysis: {behavior_data}
+
+Return JSON only:
+{{
+  "persona_type": "e.g. Budget-Conscious Gen-Z Foodie",
+  "buying_motivation": "e.g. Deal hunting + social validation",
+  "preferred_tone": "e.g. Casual, Urdu-friendly, Relatable",
+  "risk_profile": "Impulse / Research-Driven / Deal-Seeker / Premium",
+  "best_channel": "e.g. WhatsApp Campaign / Push Notification"
+}}"""
+
+STRATEGY_SELECTOR_PROMPT = """You are a marketing strategy AI.
+Given persona: {persona} and available strategies: {strategies}
+
+Return JSON only:
+{{
+  "strategy_id": "e.g. s1",
+  "strategy_name": "e.g. FOMO Flash Drop",
+  "reasoning": "Why this strategy fits this persona",
+  "confidence_score": 0.0-1.0
+}}"""
+
+COPYWRITER_PROMPT = """You are a creative ad copywriter working for the brand {brand_name}.
+Given marketing strategy: {strategy_name}, persona description: {persona_type}, tone: {preferred_tone}, and delivery channel: {channel}.
+
+Generate high-converting, personalized ad copy. Use Roman Urdu (Urdu written in English script) or Urdu-sprinkled English if the tone guidelines suggest relatable or Urdu-friendly tone, else professional English.
+Do not use placeholder text like [Name]. Use the user's name: {name} and location: {city} where appropriate.
+
+Return JSON only:
+{{
+  "draft_copy": "Ad copy here",
+  "channel": "{channel}",
+  "strategy": "{strategy_name}",
+  "tone_used": "{preferred_tone}"
+}}"""
+
+COMPLIANCE_VERIFIER_PROMPT = """You are a brand compliance checker for the brand {brand_name}.
+Brand Guidelines: {guidelines}
+Ad Copy to evaluate: "{copy}"
+
+Check for: misleading claims, inappropriate tone, cultural insensitivity, offensive language, or content unsuitable for general audiences.
+Also verify that all required elements (e.g. brand name, terms apply, cta) are present.
+
+Return JSON only:
+{{
+  "passed": true/false,
+  "violations": ["list of specific violations if any"],
+  "corrected_copy": "completely rewritten compliance-passing copy if violations found, else null"
+}}"""
+
+REFLECTION_PROMPT = """You are a self-improving marketing AI.
+User profile: {user_data}
+Previous strategies tried: {strategy_history}
+Simulated CTR results: {ctr_results}
+
+Return JSON only:
+{{
+  "evolved_strategy_name": "Name of evolved strategy",
+  "ad_copy": "Ad copy optimized based on reflection",
+  "channel": "best channel",
+  "improvement_rationale": "What you learned from past data",
+  "predicted_ctr_improvement": "e.g. +12%",
+  "predicted_ctr": 0.0-1.0,
+  "confidence_score": 0.0-1.0
+}}"""
 
 async def real_api_call(prompt: str) -> dict:
     """Call actual Claude API - used when ANTHROPIC_API_KEY is set."""
-    client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
-    response = client.messages.create(
+    client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_KEY)
+    response = await client.messages.create(
         model="claude-sonnet-4-20250514",
         max_tokens=1024,
         messages=[{"role": "user", "content": prompt}]
     )
-    text = response.content[0].text
-    # Strip markdown code fences if present
-    text = text.strip()
+    text = response.content[0].text.strip()
     if text.startswith("```"):
-        text = text.split("```")[1]
-        if text.startswith("json"):
-            text = text[4:]
+        lines = text.split("\n")
+        if lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines[-1].startswith("```"):
+            lines = lines[:-1]
+        text = "\n".join(lines)
     return json.loads(text.strip())
+
 
 
 # ─── MAIN PIPELINE ────────────────────────────────────────────────────────────
@@ -432,9 +513,105 @@ async def run_pipeline(user: dict, brand_name: str = "ImagineArt"):
     Yields dicts with 'step' and 'data'.
     """
     await asyncio.sleep(0.3)
-    
     brand_dict = BRANDS.get(brand_name, BRANDS["ImagineArt"])
     
+    if USE_REAL_API:
+        try:
+            # Step 1: Behavior Analyst
+            prompt = BEHAVIOR_ANALYST_PROMPT.format(user_data=json.dumps(user))
+            behavior = await real_api_call(prompt)
+            yield {"step": "behavior", "data": behavior}
+            await asyncio.sleep(0.5)
+            
+            # Step 2: Persona Builder
+            prompt = PERSONA_BUILDER_PROMPT.format(behavior_data=json.dumps(behavior))
+            persona = await real_api_call(prompt)
+            yield {"step": "persona", "data": persona}
+            await asyncio.sleep(0.5)
+            
+            # Step 3: Strategy Selector
+            prompt = STRATEGY_SELECTOR_PROMPT.format(
+                persona=json.dumps(persona), 
+                strategies=json.dumps(STRATEGIES)
+            )
+            strategy_res = await real_api_call(prompt)
+            
+            strategy_name = strategy_res.get("strategy_name", "FOMO Flash Drop")
+            matched_strategy = next((s for s in STRATEGIES if s["name"] == strategy_name), STRATEGIES[0])
+            ctr_history = {
+                "strategy": strategy_name,
+                "segment_avg_ctr": matched_strategy["avg_ctr"],
+                "user_historical_ctr": user["click_through_rate"],
+                "predicted_ctr": round(min(matched_strategy["avg_ctr"] * 1.1, 0.35), 3)
+            }
+            strategy = {
+                "strategy_id": strategy_res.get("strategy_id", matched_strategy["id"]),
+                "strategy_name": strategy_name,
+                "reasoning": strategy_res.get("reasoning", ""),
+                "confidence_score": strategy_res.get("confidence_score", 0.8),
+                "ctr_history": ctr_history,
+                "tool_called": "ctr_lookup",
+                "channel": persona.get("best_channel", "Push Notification")
+            }
+            yield {"step": "strategy", "data": strategy}
+            await asyncio.sleep(0.5)
+            
+            # Step 4: Ad Copywriter
+            prompt = COPYWRITER_PROMPT.format(
+                brand_name=brand_name,
+                strategy_name=strategy["strategy_name"],
+                persona_type=persona["persona_type"],
+                preferred_tone=persona["preferred_tone"],
+                channel=strategy["channel"],
+                name=user["name"].split()[0],
+                city=user["city"]
+            )
+            copy_data = await real_api_call(prompt)
+            yield {"step": "copy", "data": copy_data}
+            await asyncio.sleep(0.5)
+            
+            # Step 5: Compliance Verifier
+            compliance_result = None
+            final_copy = copy_data["draft_copy"]
+            
+            for attempt in range(1, 4):
+                prompt = COMPLIANCE_VERIFIER_PROMPT.format(
+                    brand_name=brand_name,
+                    guidelines=json.dumps(brand_dict["guidelines"]),
+                    copy=copy_data["draft_copy"]
+                )
+                compliance_result = await real_api_call(prompt)
+                compliance_result["attempts"] = attempt
+                
+                if compliance_result.get("passed", True):
+                    break
+                else:
+                    copy_data = {**copy_data, "draft_copy": compliance_result["corrected_copy"]}
+                    yield {"step": "compliance_attempt", "data": {**compliance_result, "attempt": attempt}}
+                    await asyncio.sleep(0.5)
+            
+            final_copy = copy_data["draft_copy"]
+            
+            yield {"step": "compliance", "data": {
+                **compliance_result,
+                "final_copy": final_copy,
+                "total_attempts": compliance_result["attempts"]
+            }}
+            await asyncio.sleep(0.3)
+            
+            yield {"step": "done", "data": {
+                "final_strategy": strategy["strategy_name"],
+                "final_copy": final_copy,
+                "channel": strategy["channel"],
+                "predicted_ctr": strategy["ctr_history"]["predicted_ctr"],
+                "confidence": strategy["confidence_score"],
+                "persona": persona["persona_type"]
+            }}
+            return
+        except Exception as e:
+            print(f"Claude Live API failed: {e}. Falling back to Mock simulation.")
+            
+    # Mock fallback logic
     # Step 1: Behavior Analyst
     behavior = mock_behavior_analyst(user)
     yield {"step": "behavior", "data": behavior}
@@ -464,7 +641,6 @@ async def run_pipeline(user: dict, brand_name: str = "ImagineArt"):
         if compliance_result["passed"]:
             break
         else:
-            # Use corrected copy for next attempt
             copy_data = {**copy_data, "draft_copy": compliance_result["corrected_copy"]}
             yield {"step": "compliance_attempt", "data": {**compliance_result, "attempt": attempt}}
             await asyncio.sleep(0.7)
@@ -495,6 +671,35 @@ async def run_evolution_loop(user: dict, existing_history: list = None):
     """
     strategy_history = existing_history or []
     
+    if USE_REAL_API:
+        try:
+            for i in range(1, 6):
+                ctr_results = [h.get("predicted_ctr", user["click_through_rate"]) for h in strategy_history]
+                prompt = REFLECTION_PROMPT.format(
+                    user_data=json.dumps(user),
+                    strategy_history=json.dumps(strategy_history),
+                    ctr_results=json.dumps(ctr_results)
+                )
+                result = await real_api_call(prompt)
+                result["iteration"] = i
+                
+                strategy_history.append(result)
+                yield {"step": "evolve", "data": result}
+                await asyncio.sleep(0.5)
+                
+            best = max(strategy_history, key=lambda x: x.get("predicted_ctr", 0.0))
+            yield {"step": "evolve_done", "data": {
+                "best_strategy": best.get("evolved_strategy_name", "FOMO Flash Drop"),
+                "best_copy": best.get("ad_copy", ""),
+                "best_ctr": best.get("predicted_ctr", 0.15),
+                "total_iterations": 5,
+                "improvement_summary": f"Evolved from {user['click_through_rate']*100:.1f}% -> {best.get('predicted_ctr', 0.0)*100:.1f}% CTR"
+            }}
+            return
+        except Exception as e:
+            print(f"Claude Evolution API failed: {e}. Falling back to Mock simulation.")
+            
+    # Mock fallback logic
     for i in range(1, 6):
         await asyncio.sleep(1.2)
         result = mock_reflection_agent(user, strategy_history, i)
