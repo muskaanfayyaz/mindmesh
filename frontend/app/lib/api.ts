@@ -1,4 +1,5 @@
 import { User } from './types'
+import { InterestAd, AdSlot } from './adCatalog'
 
 export async function fetchUsers(search?: string, city?: string, device?: string): Promise<{ users: User[] }> {
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -13,6 +14,37 @@ export async function fetchUsers(search?: string, city?: string, device?: string
     throw new Error('Failed to fetch users')
   }
   return res.json()
+}
+
+export async function sendInterestAdEmail(user: User, brand: string, ad: InterestAd, slot: AdSlot) {
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+  const res = await fetch(`${API_BASE_URL}/api/send-interest-ad-email`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      user_id: user.user_id,
+      brand,
+      ad_id: ad.id,
+      ad_name: ad.name,
+      ad_copy: ad.copy,
+      genre: ad.genre,
+      slot
+    })
+  })
+
+  if (!res.ok) {
+    throw new Error('Failed to send ad email')
+  }
+
+  return res.json() as Promise<{
+    sent: boolean
+    delivery: 'smtp' | 'outbox'
+    recipient: string
+    ad_id: string
+    smtp_error?: string | null
+  }>
 }
 
 export function getInterestEmoji(interest: string): string {
